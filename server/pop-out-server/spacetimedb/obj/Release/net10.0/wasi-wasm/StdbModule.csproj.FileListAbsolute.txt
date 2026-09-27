@@ -1,0 +1,13 @@
+C:\Game Project\POP-OUT-Game-Project\server\pop-out-server\spacetimedb\bin\Release\net10.0\wasi-wasm\StdbModule.deps.json
+C:\Game Project\POP-OUT-Game-Project\server\pop-out-server\spacetimedb\bin\Release\net10.0\wasi-wasm\StdbModule.dll
+C:\Game Project\POP-OUT-Game-Project\server\pop-out-server\spacetimedb\bin\Release\net10.0\wasi-wasm\StdbModule.pdb
+C:\Game Project\POP-OUT-Game-Project\server\pop-out-server\spacetimedb\obj\Release\net10.0\wasi-wasm\StdbModule.csproj.AssemblyReference.cache
+C:\Game Project\POP-OUT-Game-Project\server\pop-out-server\spacetimedb\obj\Release\net10.0\wasi-wasm\StdbModule.GeneratedMSBuildEditorConfig.editorconfig
+C:\Game Project\POP-OUT-Game-Project\server\pop-out-server\spacetimedb\obj\Release\net10.0\wasi-wasm\StdbModule.AssemblyInfoInputs.cache
+C:\Game Project\POP-OUT-Game-Project\server\pop-out-server\spacetimedb\obj\Release\net10.0\wasi-wasm\StdbModule.AssemblyInfo.cs
+C:\Game Project\POP-OUT-Game-Project\server\pop-out-server\spacetimedb\obj\Release\net10.0\wasi-wasm\StdbModule.csproj.CoreCompileInputs.cache
+C:\Game Project\POP-OUT-Game-Project\server\pop-out-server\spacetimedb\obj\Release\net10.0\wasi-wasm\StdbModule.sourcelink.json
+C:\Game Project\POP-OUT-Game-Project\server\pop-out-server\spacetimedb\obj\Release\net10.0\wasi-wasm\StdbModule.dll
+C:\Game Project\POP-OUT-Game-Project\server\pop-out-server\spacetimedb\obj\Release\net10.0\wasi-wasm\refint\StdbModule.dll
+C:\Game Project\POP-OUT-Game-Project\server\pop-out-server\spacetimedb\obj\Release\net10.0\wasi-wasm\StdbModule.pdb
+C:\Game Project\POP-OUT-Game-Project\server\pop-out-server\spacetimedb\obj\Release\net10.0\wasi-wasm\ref\StdbModule.dll

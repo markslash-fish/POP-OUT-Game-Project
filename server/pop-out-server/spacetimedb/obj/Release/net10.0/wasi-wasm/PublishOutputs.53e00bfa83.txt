@@ -1,0 +1,2 @@
+C:\Game Project\POP-OUT-Game-Project\server\pop-out-server\spacetimedb\bin\Release\net10.0\wasi-wasm\publish\StdbModule.wasm
+C:\Game Project\POP-OUT-Game-Project\server\pop-out-server\spacetimedb\bin\Release\net10.0\wasi-wasm\publish\StdbModule.deps.json
