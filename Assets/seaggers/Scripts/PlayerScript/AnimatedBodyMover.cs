@@ -1,0 +1,131 @@
+using UnityEngine;
+
+public class AnimatedBodyMover : MonoBehaviour
+{
+    [Header("Movement")]
+    public float moveSpeed = 1.5f;
+    public float turnSpeed = 540f;          // degrees/second
+    public VirtualJoystick joystick;        // LEFT stick: movement
+    public VirtualJoystick aimJoystick;     // MOBILE: RIGHT stick: aim + throw (optional on PC)
+    public Transform cameraTransform;       // leave empty = uses Camera.main
+
+    Animator animator;
+    Vector2 moveInput;                      // x = left/right, y = up/down on screen (max length 1)
+
+    public bool holding;                    // true while aiming (mouse right-click OR aim stick)
+    public float holdBlendSpeed = 8f;       // how fast the arms blend in and out
+    float holdWeight;
+    public float throwDuration = 0.6f;      // set to your Throw clip's length in seconds
+    float throwTimer;
+    bool wasHolding;
+
+    [Header("Arm drive")]
+    public ConfigurableJoint armL;          // Arm.L joint on Physical_Body
+    public ConfigurableJoint armR;          // Arm.R joint on Physical_Body
+    public float looseSpring = 25f;
+    public float looseDamper = 8f;
+    public float holdSpring = 3000f;
+    public float holdDamper = 150f;
+
+    void Awake()
+    {
+        animator = GetComponent<Animator>();
+    }
+
+    void Start()
+    {
+        if (cameraTransform == null && Camera.main != null)
+            cameraTransform = Camera.main.transform;
+    }
+
+    void Update()
+    {
+        ReadMoveInput();
+
+        animator.SetFloat("Speed", moveInput.magnitude, 0.1f, Time.deltaTime);
+
+        bool canInput = MatchManager.InputEnabled;   // false during countdown / after the match
+        // Swing (melee) is handled by MeleeCombat now
+        if (canInput && Input.GetKeyDown(KeyCode.E)) animator.SetTrigger("Throw");
+
+        // MOBILE: aim stick counts as "holding" too
+        holding = canInput && (Input.GetMouseButton(1) || (aimJoystick != null && aimJoystick.IsPressed));
+
+        // releasing = throw
+        if (wasHolding && !holding)
+        {
+            animator.SetTrigger("Throw");
+            throwTimer = throwDuration;
+        }
+        wasHolding = holding;
+        throwTimer -= Time.deltaTime;
+
+        holdWeight = Mathf.MoveTowards(holdWeight, holding ? 1f : 0f, holdBlendSpeed * Time.deltaTime);
+        animator.SetLayerWeight(1, holdWeight);
+
+        // arms stay firm while holding and during the throw
+        float firm = throwTimer > 0f ? 1f : holdWeight;
+        float spring = Mathf.Lerp(looseSpring, holdSpring, firm);
+        float damper = Mathf.Lerp(looseDamper, holdDamper, firm);
+        SetArmDrive(armL, spring, damper);
+        SetArmDrive(armR, spring, damper);
+    }
+
+    void ReadMoveInput()
+    {
+        if (!MatchManager.InputEnabled) { moveInput = Vector2.zero; return; }
+
+        Vector2 input = Vector2.zero;
+
+        if (Input.GetKey(KeyCode.W)) input.y += 1f;
+        if (Input.GetKey(KeyCode.S)) input.y -= 1f;
+        if (Input.GetKey(KeyCode.D)) input.x += 1f;
+        if (Input.GetKey(KeyCode.A)) input.x -= 1f;
+
+        if (joystick != null) input += joystick.Value;
+
+        moveInput = Vector2.ClampMagnitude(input, 1f);
+    }
+
+    void FixedUpdate()
+    {
+        Vector3 moveDir = ToWorld(moveInput);
+
+        // MOBILE: while the aim stick is held, face where the stick points (move stick still lets you walk)
+        Vector3 aimDir = (MatchManager.InputEnabled && aimJoystick != null && aimJoystick.IsPressed) ? ToWorld(aimJoystick.Value) : Vector3.zero;
+        Vector3 faceDir = aimDir.sqrMagnitude > 0.0001f ? aimDir : moveDir;
+
+        if (faceDir.sqrMagnitude > 0.0001f)
+        {
+            Quaternion target = Quaternion.LookRotation(faceDir.normalized, Vector3.up);
+            transform.rotation = Quaternion.RotateTowards(transform.rotation, target, turnSpeed * Time.fixedDeltaTime);
+        }
+
+        if (moveDir.sqrMagnitude > 0.0001f)
+            transform.position += moveDir.normalized * moveInput.magnitude * moveSpeed * Time.fixedDeltaTime;
+    }
+
+    // Screen-style 2D input -> flat world direction relative to the camera
+    public Vector3 ToWorld(Vector2 input)
+    {
+        if (input.sqrMagnitude < 0.0001f) return Vector3.zero;
+
+        Vector3 camForward = Vector3.forward;
+        Vector3 camRight = Vector3.right;
+        if (cameraTransform != null)
+        {
+            camForward = cameraTransform.forward; camForward.y = 0f; camForward.Normalize();
+            camRight = cameraTransform.right; camRight.y = 0f; camRight.Normalize();
+        }
+        return camRight * input.x + camForward * input.y;
+    }
+
+    void SetArmDrive(ConfigurableJoint j, float spring, float damper)
+    {
+        if (j == null) return;
+        var d = j.slerpDrive;
+        d.positionSpring = spring;
+        d.positionDamper = damper;
+        j.slerpDrive = d;
+    }
+}

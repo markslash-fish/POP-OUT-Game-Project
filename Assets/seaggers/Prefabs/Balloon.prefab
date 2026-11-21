@@ -163,3 +163,11 @@ MonoBehaviour:
     m_Bits: 192
   pushRadius: 2.5
   pushForce: 0
+  centerDamagePercent: 0.337
+  outerDamagePercent: 0.1
+  knockbackSpeed: 8
+  outerKnockbackScale: 0.6
+  knockbackUpward: 0.3
+  damageOwner: 0
+  ownerKnockbackScale: 0.5
+  owner: {fileID: 0}

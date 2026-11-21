@@ -1,0 +1,16 @@
+{
+  "version": 2,
+  "dgSpecHash": "1cmrvtqF2z8=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\kimdo\\PopOutProject\\POP-OUT-Game-Project\\server\\spacetimedb\\spacetimedb\\StdbModule.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\kimdo\\.nuget\\packages\\microsoft.dotnet.ilcompiler.llvm\\10.0.0-rc.1.26357.1\\microsoft.dotnet.ilcompiler.llvm.10.0.0-rc.1.26357.1.nupkg.sha512",
+    "C:\\Users\\kimdo\\.nuget\\packages\\microsoft.net.illink.tasks\\10.0.0\\microsoft.net.illink.tasks.10.0.0.nupkg.sha512",
+    "C:\\Users\\kimdo\\.nuget\\packages\\runtime.linux-x64.microsoft.dotnet.ilcompiler.llvm\\10.0.0-rc.1.26357.1\\runtime.linux-x64.microsoft.dotnet.ilcompiler.llvm.10.0.0-rc.1.26357.1.nupkg.sha512",
+    "C:\\Users\\kimdo\\.nuget\\packages\\runtime.wasi-wasm.microsoft.dotnet.ilcompiler.llvm\\10.0.0-rc.1.26357.1\\runtime.wasi-wasm.microsoft.dotnet.ilcompiler.llvm.10.0.0-rc.1.26357.1.nupkg.sha512",
+    "C:\\Users\\kimdo\\.nuget\\packages\\runtime.win-x64.microsoft.dotnet.ilcompiler.llvm\\10.0.0-rc.1.26357.1\\runtime.win-x64.microsoft.dotnet.ilcompiler.llvm.10.0.0-rc.1.26357.1.nupkg.sha512",
+    "C:\\Users\\kimdo\\.nuget\\packages\\spacetimedb.bsatn.runtime\\2.12.0\\spacetimedb.bsatn.runtime.2.12.0.nupkg.sha512",
+    "C:\\Users\\kimdo\\.nuget\\packages\\spacetimedb.runtime\\2.12.0\\spacetimedb.runtime.2.12.0.nupkg.sha512"
+  ],
+  "logs": []
+}
