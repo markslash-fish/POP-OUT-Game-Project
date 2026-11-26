@@ -139,6 +139,12 @@ public class MatchManager : MonoBehaviour
         UpdatePhase();   // fires PhaseChanged for phase 0
     }
 
+    public void ReturnToWaiting()
+    {
+        if (ScoreManager.Instance != null) ScoreManager.Instance.acceptingScores = false;
+        SetState(MatchState.Waiting);
+    }
+
     void EndMatch()
     {
         MatchElapsed = TotalDuration;

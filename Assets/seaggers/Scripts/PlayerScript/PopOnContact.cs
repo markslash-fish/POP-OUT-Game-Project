@@ -1,5 +1,5 @@
-using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Pool;
 
 public class PopOnContact : MonoBehaviour
 {
@@ -28,7 +28,19 @@ public class PopOnContact : MonoBehaviour
 
     [HideInInspector] public Health owner;   // set by Thrower
 
+    const int ParticlesPerBurstLimit = 1000;
+    static readonly Collider[] SplashContacts = new Collider[64];
+    static ParticleSystem popParticles;
+    static Material popMaterial;
     bool popped;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetPopResources()
+    {
+        if (popMaterial != null) Destroy(popMaterial);
+        popMaterial = null;
+        popParticles = null;
+    }
 
     void OnCollisionEnter(Collision c)
     {
@@ -47,48 +59,7 @@ public class PopOnContact : MonoBehaviour
 
     void Pop(Vector3 pos, Health directHit)
     {
-        var go = new GameObject("PopFX");
-        go.transform.position = pos;
-
-        var ps = go.AddComponent<ParticleSystem>();
-        ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-
-        var main = ps.main;
-        main.duration = 1f;
-        main.loop = false;
-        main.startLifetime = lifetime;
-        main.startSpeed = new ParticleSystem.MinMaxCurve(burstSpeed * 0.5f, burstSpeed);
-        main.startSize = new ParticleSystem.MinMaxCurve(size * 0.5f, size);
-        main.startColor = color;
-        main.gravityModifier = 0.5f;
-        main.simulationSpace = ParticleSystemSimulationSpace.World;
-
-        var emission = ps.emission;
-        emission.rateOverTime = 0f;
-        emission.SetBursts(new[] { new ParticleSystem.Burst(0f, (short)particleCount) });
-
-        var shape = ps.shape;
-        shape.shapeType = ParticleSystemShapeType.Sphere;
-        shape.radius = 0.1f;
-
-        var fade = ps.colorOverLifetime;
-        fade.enabled = true;
-        var grad = new Gradient();
-        grad.SetKeys(
-            new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
-            new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0f, 1f) });
-        fade.color = grad;
-
-        var shrink = ps.sizeOverLifetime;
-        shrink.enabled = true;
-        shrink.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 0f));
-
-        var r = go.GetComponent<ParticleSystemRenderer>();
-        r.material = new Material(Shader.Find("Sprites/Default"));
-
-        ps.Play();
-        Destroy(go, 2f);
-
+        EmitPopParticles(pos);
         ApplySplash(pos, directHit);
 
         if (pushForce > 0f)
@@ -103,22 +74,83 @@ public class PopOnContact : MonoBehaviour
         }
     }
 
+    void EmitPopParticles(Vector3 position)
+    {
+        int count = Mathf.Clamp(particleCount, 0, ParticlesPerBurstLimit);
+        if (count == 0) return;
+        if (popParticles == null) popParticles = CreatePopParticles();
+
+        var settings = popParticles.main;
+        int requiredCapacity = popParticles.particleCount + count;
+        if (settings.maxParticles < requiredCapacity) settings.maxParticles = requiredCapacity;
+
+        settings.startLifetime = lifetime;
+        settings.startSpeed = new ParticleSystem.MinMaxCurve(burstSpeed * 0.5f, burstSpeed);
+        settings.startSize = new ParticleSystem.MinMaxCurve(size * 0.5f, size);
+        settings.startColor = color;
+        popParticles.transform.position = position;
+        popParticles.Emit(count);
+    }
+
+    static ParticleSystem CreatePopParticles()
+    {
+        var particles = new GameObject("PopFX").AddComponent<ParticleSystem>();
+        particles.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
+        var main = particles.main;
+        main.playOnAwake = false;
+        main.loop = true;
+        main.gravityModifier = 0.5f;
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        main.cullingMode = ParticleSystemCullingMode.AlwaysSimulate;
+        var emission = particles.emission;
+        emission.rateOverTime = 0f;
+
+        var shape = particles.shape;
+        shape.shapeType = ParticleSystemShapeType.Sphere;
+        shape.radius = 0.1f;
+
+        var fade = particles.colorOverLifetime;
+        fade.enabled = true;
+        var gradient = new Gradient();
+        gradient.SetKeys(
+            new[] { new GradientColorKey(Color.white, 0f), new GradientColorKey(Color.white, 1f) },
+            new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0f, 1f) });
+        fade.color = gradient;
+
+        var shrink = particles.sizeOverLifetime;
+        shrink.enabled = true;
+        shrink.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 0f));
+
+        if (popMaterial == null) popMaterial = new Material(Shader.Find("Sprites/Default"));
+        particles.GetComponent<ParticleSystemRenderer>().sharedMaterial = popMaterial;
+        particles.Play();
+        return particles;
+    }
+
     // Finds every player in the splash radius. The one we hit directly = CENTER hit, everyone else = OUTER hit.
     void ApplySplash(Vector3 pos, Health directHit)
     {
         // a ragdoll has many colliders, so make sure each player is processed only ONCE
-        var found = new HashSet<Health>();
-
-        foreach (var col in Physics.OverlapSphere(pos, pushRadius, ~0, QueryTriggerInteraction.Ignore))
+        using var pooled = HashSetPool<Health>.Get(out var found);
+        int count = Physics.OverlapSphereNonAlloc(pos, pushRadius, SplashContacts, ~0, QueryTriggerInteraction.Ignore);
+        var contacts = SplashContacts;
+        if (count == contacts.Length)
         {
-            var h = col.GetComponentInParent<Health>();
+            contacts = Physics.OverlapSphere(pos, pushRadius, ~0, QueryTriggerInteraction.Ignore);
+            count = contacts.Length;
+        }
+        for (int i = 0; i < count; i++)
+        {
+            var h = contacts[i].GetComponentInParent<Health>();
             if (h != null) found.Add(h);
         }
+        System.Array.Clear(SplashContacts, 0, SplashContacts.Length);
         if (directHit != null) found.Add(directHit);
 
         foreach (Health h in found)
         {
-            if (h.IsDead || h.IsInvulnerable) continue;   // respawn shield blocks damage AND knockback
+            if (h.IsRemoteReplica || h.IsDead || h.IsInvulnerable) continue;   // The victim's client applies the hit.
 
             bool isOwner = h == owner;
             bool isCenter = h == directHit;

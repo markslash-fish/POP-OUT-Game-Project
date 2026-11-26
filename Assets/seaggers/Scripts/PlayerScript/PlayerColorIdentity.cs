@@ -3,7 +3,7 @@ using UnityEngine;
 
 /// <summary>
 /// Put on every player (same object as Health). Holds the player's CURRENT color and tints the character with it.
-/// The color is chosen by the ColorAssigner at every phase change.
+/// The color is assigned at the start of the match.
 /// </summary>
 public class PlayerColorIdentity : MonoBehaviour
 {

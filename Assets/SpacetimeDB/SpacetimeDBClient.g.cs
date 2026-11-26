@@ -27,7 +27,7 @@ namespace SpacetimeDB.Types
     {
         public RemoteTables(DbConnection conn)
         {
-            AddTable(Person = new(conn));
+            AddTable(RoomPlayers = new(conn));
         }
     }
 
@@ -524,14 +524,14 @@ namespace SpacetimeDB.Types
 
         internal static string[] AllTablesSqlQueries() => new string[]
         {
-            new QueryBuilder().From.Person().ToSql(),
+            new QueryBuilder().From.RoomPlayers().ToSql(),
         }
         ;
     }
 
     public sealed class From
     {
-        public global::SpacetimeDB.Table<Person, PersonCols, PersonIxCols> Person() => new("person", new PersonCols("person"), new PersonIxCols("person"));
+        public global::SpacetimeDB.Table<RoomPlayerState, RoomPlayersCols, RoomPlayersIxCols> RoomPlayers() => new("room_players", new RoomPlayersCols("room_players"), new RoomPlayersIxCols("room_players"));
     }
 
     public sealed class TypedSubscriptionBuilder
@@ -613,8 +613,10 @@ namespace SpacetimeDB.Types
             var eventContext = (ReducerEventContext)context;
             return reducer switch
             {
-                Reducer.Add args => Reducers.InvokeAdd(eventContext, args),
-                Reducer.SayHello args => Reducers.InvokeSayHello(eventContext, args),
+                Reducer.JoinRoom args => Reducers.InvokeJoinRoom(eventContext, args),
+                Reducer.PerformAction args => Reducers.InvokePerformAction(eventContext, args),
+                Reducer.ReportKo args => Reducers.InvokeReportKo(eventContext, args),
+                Reducer.UpdatePose args => Reducers.InvokeUpdatePose(eventContext, args),
                 _ => throw new ArgumentOutOfRangeException("Reducer", $"Unknown reducer {reducer}")
             };
         }

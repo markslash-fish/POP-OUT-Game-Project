@@ -12,17 +12,17 @@ namespace SpacetimeDB.Types
 {
     public sealed partial class RemoteReducers : RemoteBase
     {
-        public delegate void SayHelloHandler(ReducerEventContext ctx);
-        public event SayHelloHandler? OnSayHello;
+        public delegate void JoinRoomHandler(ReducerEventContext ctx, string room, string name);
+        public event JoinRoomHandler? OnJoinRoom;
 
-        public void SayHello()
+        public void JoinRoom(string room, string name)
         {
-            conn.InternalCallReducer(new Reducer.SayHello());
+            conn.InternalCallReducer(new Reducer.JoinRoom(room, name));
         }
 
-        public bool InvokeSayHello(ReducerEventContext ctx, Reducer.SayHello args)
+        public bool InvokeJoinRoom(ReducerEventContext ctx, Reducer.JoinRoom args)
         {
-            if (OnSayHello == null)
+            if (OnJoinRoom == null)
             {
                 if (InternalOnUnhandledReducerError != null)
                 {
@@ -35,8 +35,10 @@ namespace SpacetimeDB.Types
                 }
                 return false;
             }
-            OnSayHello(
-                ctx
+            OnJoinRoom(
+                ctx,
+                args.Room,
+                args.Name
             );
             return true;
         }
@@ -46,9 +48,29 @@ namespace SpacetimeDB.Types
     {
         [SpacetimeDB.Type]
         [DataContract]
-        public sealed partial class SayHello : Reducer, IReducerArgs
+        public sealed partial class JoinRoom : Reducer, IReducerArgs
         {
-            string IReducerArgs.ReducerName => "say_hello";
+            [DataMember(Name = "room")]
+            public string Room;
+            [DataMember(Name = "name")]
+            public string Name;
+
+            public JoinRoom(
+                string Room,
+                string Name
+            )
+            {
+                this.Room = Room;
+                this.Name = Name;
+            }
+
+            public JoinRoom()
+            {
+                this.Room = "";
+                this.Name = "";
+            }
+
+            string IReducerArgs.ReducerName => "join_room";
         }
     }
 }

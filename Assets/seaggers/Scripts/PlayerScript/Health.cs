@@ -38,7 +38,10 @@ public class Health : MonoBehaviour
     public StatusEffectSystem Status { get; private set; }   // found automatically (can be null)
 
     float invulnerableUntil;
-    public bool IsInvulnerable => Time.time < invulnerableUntil;
+    private bool remoteShielded;
+    public bool IsRemoteReplica { get; private set; }
+    internal int RoomSlot { get; set; } = int.MaxValue;
+    public bool IsInvulnerable => IsRemoteReplica ? remoteShielded : Time.time < invulnerableUntil;
 
     public event Action<Health> HealthChanged;           // (victim)
     public event Action<Health, float> Damaged;          // (victim, amount)
@@ -69,7 +72,7 @@ public class Health : MonoBehaviour
     /// <summary>Returns true if the damage was actually applied.</summary>
     public bool TakeDamage(float amount, Health attacker = null, HitType hitType = HitType.Other)
     {
-        if (IsDead || IsInvulnerable || amount <= 0f) return false;
+        if (IsRemoteReplica || IsDead || IsInvulnerable || amount <= 0f) return false;
 
         Current = Mathf.Max(0f, Current - amount);
 
@@ -90,7 +93,7 @@ public class Health : MonoBehaviour
     /// <summary>Instant death (ring-out). Ignores the respawn shield.</summary>
     public void Kill(DeathCause cause)
     {
-        if (IsDead) return;
+        if (IsRemoteReplica || IsDead) return;
         Current = 0f;
         HealthChanged?.Invoke(this);
         Die(cause);
@@ -106,7 +109,7 @@ public class Health : MonoBehaviour
 
     public void Heal(float amount)   // for the Green "Lifesteal" passive later
     {
-        if (IsDead || amount <= 0f) return;
+        if (IsRemoteReplica || IsDead || amount <= 0f) return;
         Current = Mathf.Min(maxHealth, Current + amount);
         HealthChanged?.Invoke(this);
     }
@@ -121,6 +124,18 @@ public class Health : MonoBehaviour
         Current = maxHealth;
         IsDead = false;
         LastAttacker = null;   // old credit must not carry into the next life
+        HealthChanged?.Invoke(this);
+    }
+
+    public void ApplyRemoteState(float health, bool shielded)
+    {
+        IsRemoteReplica = true;
+        remoteShielded = shielded;
+        float current = Mathf.Clamp(health, 0f, maxHealth);
+        if (Current == current) return;
+
+        Current = current;
+        IsDead = current <= 0f;
         HealthChanged?.Invoke(this);
     }
 

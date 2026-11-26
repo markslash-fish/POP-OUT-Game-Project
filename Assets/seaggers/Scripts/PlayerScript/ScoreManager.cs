@@ -23,6 +23,7 @@ public class ScoreManager : MonoBehaviour
     readonly Dictionary<Health, int> scores = new Dictionary<Health, int>();
 
     public event Action<Health, int> ScoreChanged;   // (player, new score)
+    public bool UseRoomScores { get; set; }
 
     void OnEnable()
     {
@@ -38,7 +39,7 @@ public class ScoreManager : MonoBehaviour
 
     void OnAnyDied(Health victim, Health killer, DeathCause cause)
     {
-        if (!acceptingScores) return;
+        if (UseRoomScores || !acceptingScores) return;
 
         if (killer == null || killer == victim)
         {
@@ -47,10 +48,24 @@ public class ScoreManager : MonoBehaviour
         }
 
         int newScore = GetScore(killer) + pointsPerElimination;
-        scores[killer] = newScore;
-        ScoreChanged?.Invoke(killer, newScore);
+        SetScore(killer, newScore);
 
         Debug.Log(killer.playerName + " eliminated " + victim.playerName + " by " + cause + " -> " + newScore + " pts");
+    }
+
+    public void SetScore(Health player, int score)
+    {
+        if (scores.TryGetValue(player, out int previous) && previous == score) return;
+
+        scores[player] = score;
+        ScoreChanged?.Invoke(player, score);
+        RefreshDebug();
+    }
+
+    public void RemovePlayer(Health player)
+    {
+        scores.Remove(player);
+        ScoreChanged?.Invoke(player, 0);
         RefreshDebug();
     }
 
@@ -66,14 +81,14 @@ public class ScoreManager : MonoBehaviour
     }
 
     /// <summary>
-    /// Highest score first. Ties keep a stable order (registration order) as a PLACEHOLDER -
-    /// the real tie-break rule is not defined in design.md yet.
+    /// Highest score first. Display tied online players in the same slot order on every client.
     /// </summary>
     public List<KeyValuePair<Health, int>> GetRanking()
     {
         return Health.All
             .Select(h => new KeyValuePair<Health, int>(h, GetScore(h)))
-            .OrderByDescending(p => p.Value)      // OrderBy is stable
+            .OrderByDescending(p => p.Value)
+            .ThenBy(p => p.Key.RoomSlot)
             .ToList();
     }
 

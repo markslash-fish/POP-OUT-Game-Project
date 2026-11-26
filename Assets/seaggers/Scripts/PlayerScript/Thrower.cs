@@ -1,6 +1,5 @@
 using System.Collections;
 using UnityEngine;
-using System.Collections.Generic;
 
 public class Thrower : MonoBehaviour
 {
@@ -52,6 +51,14 @@ public class Thrower : MonoBehaviour
     const int ringPoints = 32;
     LineRenderer rangeRing;
     const int rangePoints = 64;
+    const float RangePreviewInterval = 0.05f;
+    static readonly Vector3[] CircleDirections = BuildCircleDirections();
+    Material indicatorMaterial;
+    Vector3[] arcPositions;
+    Vector3[] landingPositions;
+    Vector3[] rangePositions;
+    bool indicatorVisible;
+    float nextRangePreview;
 
     GameObject held;
     bool releasing;
@@ -65,6 +72,7 @@ public class Thrower : MonoBehaviour
     public int MaxAmmo => maxAmmo;
     public bool IsReloading => reloading;
     public float ReloadRemaining => reloading ? Mathf.Max(0f, reloadEndTime - Time.time) : 0f;
+    public event System.Action<Vector3, Vector3, float> BalloonReleased;
 
     // Mobile state
     AnimatedBodyMover mover;    // found automatically from aimRoot (used to convert stick -> world direction)
@@ -234,14 +242,40 @@ public class Thrower : MonoBehaviour
         ammo = maxAmmo;
         if (aimStick != null && mover == null)
             Debug.LogWarning("Thrower: AnimatedBodyMover not found on aimRoot. Mobile aiming needs it.");
+    }
 
-        var mat = new Material(Shader.Find("Sprites/Default"));
-        arc = MakeLine("TrajectoryArc", mat, 0.08f, false);
-        ring = MakeLine("LandingRing", mat, 0.06f, true);
+    void CreateIndicator()
+    {
+        indicatorMaterial = new Material(Shader.Find("Sprites/Default"));
+        arc = MakeLine("TrajectoryArc", indicatorMaterial, 0.08f, false);
+        ring = MakeLine("LandingRing", indicatorMaterial, 0.06f, true);
         ring.positionCount = ringPoints;
-        rangeRing = MakeLine("RangeRing", mat, 0.05f, true);
+        rangeRing = MakeLine("RangeRing", indicatorMaterial, 0.05f, true);
         rangeRing.positionCount = rangePoints;
+        arcPositions = new Vector3[Mathf.Max(0, maxPoints) + 1];
+        landingPositions = new Vector3[ringPoints];
+        rangePositions = new Vector3[rangePoints];
+    }
+
+    void OnDisable()
+    {
         SetIndicator(false);
+    }
+
+    void OnDestroy()
+    {
+        if (indicatorMaterial != null) Destroy(indicatorMaterial);
+    }
+
+    static Vector3[] BuildCircleDirections()
+    {
+        var directions = new Vector3[rangePoints];
+        for (int i = 0; i < directions.Length; i++)
+        {
+            float angle = i * (2f * Mathf.PI / rangePoints);
+            directions[i] = new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle));
+        }
+        return directions;
     }
 
     LineRenderer MakeLine(string lineName, Material mat, float width, bool loop)
@@ -249,7 +283,7 @@ public class Thrower : MonoBehaviour
         var go = new GameObject(lineName);
         go.transform.SetParent(transform);
         var lr = go.AddComponent<LineRenderer>();
-        lr.material = mat;
+        lr.sharedMaterial = mat;
         lr.startColor = lr.endColor = indicatorColor;
         lr.startWidth = lr.endWidth = width;
         lr.loop = loop;
@@ -261,6 +295,11 @@ public class Thrower : MonoBehaviour
 
     void SetIndicator(bool on)
     {
+        if (indicatorVisible == on) return;
+        if (arc == null) CreateIndicator();
+        indicatorVisible = on;
+        if (on) nextRangePreview = 0f;
+
         arc.enabled = on;
         ring.enabled = on;
         rangeRing.enabled = on;
@@ -268,75 +307,83 @@ public class Thrower : MonoBehaviour
 
     void UpdateIndicator()
     {
-        Vector3 pos = (handL.position + handR.position) / 2f;
-        Vector3 dir = GetLaunchDir(aimAngle);
-        Vector3 vel = dir * aimSpeed;
+        Vector3 center = (handL.position + handR.position) / 2f;
+        Vector3 pos = center;
+        Vector3 vel = GetLaunchDir(aimAngle) * aimSpeed;
+        Vector3 gravityStep = Physics.gravity * stepTime;
+        Vector3 halfGravityStep = gravityStep * (0.5f * stepTime);
 
-        var points = new List<Vector3> { pos };
+        if (arcPositions.Length <= maxPoints) arcPositions = new Vector3[maxPoints + 1];
+        int pointCount = 1;
+        arcPositions[0] = pos;
         Vector3 landing = pos;
 
         for (int i = 0; i < maxPoints; i++)
         {
-            Vector3 next = pos + vel * stepTime + Physics.gravity * (0.5f * stepTime * stepTime);
-            vel += Physics.gravity * stepTime;
+            Vector3 next = pos + vel * stepTime + halfGravityStep;
+            vel += gravityStep;
 
             if (Physics.Linecast(pos, next, out RaycastHit hit, hitMask, QueryTriggerInteraction.Ignore))
             {
-                points.Add(hit.point);
+                arcPositions[pointCount++] = hit.point;
                 landing = hit.point;
                 break;
             }
 
-            points.Add(next);
+            arcPositions[pointCount++] = next;
             pos = next;
             landing = next;
         }
 
-        arc.positionCount = points.Count;
-        arc.SetPositions(points.ToArray());
+        arc.positionCount = pointCount;
+        arc.SetPositions(arcPositions);
 
+        landing.y += 0.03f;
         for (int i = 0; i < ringPoints; i++)
-        {
-            float a = i / (float)ringPoints * Mathf.PI * 2f;
-            ring.SetPosition(i, landing + new Vector3(Mathf.Cos(a) * landingRadius, 0.03f, Mathf.Sin(a) * landingRadius));
-        }
+            landingPositions[i] = landing + CircleDirections[i * (rangePoints / ringPoints)] * landingRadius;
+        ring.SetPositions(landingPositions);
 
-        Vector3 center = (handL.position + handR.position) / 2f;
+        // The arc still follows the aim every frame. The ground range outline can update less often.
+        float now = Time.unscaledTime;
+        if (now < nextRangePreview) return;
+        nextRangePreview = now + RangePreviewInterval;
         for (int i = 0; i < rangePoints; i++)
         {
-            float a = i / (float)rangePoints * Mathf.PI * 2f;
-            Vector3 p = center + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * maxRange;
+            Vector3 p = center + CircleDirections[i] * maxRange;
             Vector3 origin = p + Vector3.up * 2f;
             if (Physics.Raycast(origin, Vector3.down, out RaycastHit h, 30f, hitMask, QueryTriggerInteraction.Ignore))
                 p.y = h.point.y + 0.03f;
-            rangeRing.SetPosition(i, p);
+            rangePositions[i] = p;
         }
+        rangeRing.SetPositions(rangePositions);
     }
 
     void ClampRange()
     {
         Vector3 start = (handL.position + handR.position) / 2f;
-        if (Reach(start, aimSpeed) <= maxRange) return;
+        Vector3 direction = GetLaunchDir(aimAngle);
+        if (Reach(start, direction, aimSpeed) <= maxRange) return;
 
         float lo = 0f, hi = aimSpeed;
         for (int i = 0; i < 12; i++)
         {
             float mid = (lo + hi) / 2f;
-            if (Reach(start, mid) <= maxRange) lo = mid; else hi = mid;
+            if (Reach(start, direction, mid) <= maxRange) lo = mid; else hi = mid;
         }
         aimSpeed = lo;
     }
 
-    float Reach(Vector3 start, float speed)
+    float Reach(Vector3 start, Vector3 direction, float speed)
     {
-        Vector3 dir = GetLaunchDir(aimAngle);
-        Vector3 vel = dir * speed;
+        Vector3 vel = direction * speed;
+        Vector3 gravityStep = Physics.gravity * stepTime;
+        Vector3 halfGravityStep = gravityStep * (0.5f * stepTime);
         Vector3 pos = start;
 
         for (int i = 0; i < maxPoints; i++)
         {
-            Vector3 next = pos + vel * stepTime + Physics.gravity * (0.5f * stepTime * stepTime);
-            vel += Physics.gravity * stepTime;
+            Vector3 next = pos + vel * stepTime + halfGravityStep;
+            vel += gravityStep;
 
             if (Physics.Linecast(pos, next, out RaycastHit hit, hitMask, QueryTriggerInteraction.Ignore))
             {
@@ -395,15 +442,30 @@ public class Thrower : MonoBehaviour
         yield return new WaitForSeconds(throwDelay);
         held = null;
 
-        obj.transform.SetParent(null);
-        var rb = obj.GetComponent<Rigidbody>();
-        rb.isKinematic = false;
         Vector3 dir = stickThrow ? lockedDir : Quaternion.AngleAxis(-angle, aimRoot.right) * aimRoot.forward;
-        rb.linearVelocity = dir * speed;
+        Vector3 velocity = dir * speed;
+        BalloonReleased?.Invoke(obj.transform.position, velocity, aimRoot.eulerAngles.y);
+        yield return Launch(obj, velocity);
+        releasing = false;
+    }
+
+    public void ReplayThrow(Vector3 position, Vector3 velocity)
+    {
+        var balloon = Instantiate(throwablePrefab, position, Quaternion.identity);
+        balloon.GetComponent<Collider>().enabled = false;
+        var pop = balloon.GetComponent<PopOnContact>();
+        if (pop != null) pop.owner = ownerHealth;
+        StartCoroutine(Launch(balloon, velocity));
+    }
+
+    IEnumerator Launch(GameObject balloon, Vector3 velocity)
+    {
+        balloon.transform.SetParent(null);
+        var body = balloon.GetComponent<Rigidbody>();
+        body.isKinematic = false;
+        body.linearVelocity = velocity;
 
         yield return new WaitForSeconds(0.2f);   // let it clear the arm before it collides
-        if (obj != null) obj.GetComponent<Collider>().enabled = true;
-
-        releasing = false;
+        if (balloon != null) balloon.GetComponent<Collider>().enabled = true;
     }
 }

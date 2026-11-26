@@ -47,7 +47,14 @@ public class MeleeCombat : MonoBehaviour
     readonly Collider[] overlapBuffer = new Collider[128];
     bool hasSwingParam;
     LineRenderer swingLine;
+    Material swingLineMaterial;
+    Vector3[] swingPositions;
     const int arcPoints = 13;
+
+    public event System.Action<Vector3, float> SwingStarted;
+    bool replaying;
+    Vector3 replayOrigin;
+    Vector3 replayForward;
 
     void Awake()
     {
@@ -62,6 +69,8 @@ public class MeleeCombat : MonoBehaviour
 
     void Update()
     {
+        if (ownerHealth != null && ownerHealth.IsRemoteReplica) return;
+
         if (!MatchManager.InputEnabled)
         {
             bufferUntil = 0f;
@@ -73,8 +82,19 @@ public class MeleeCombat : MonoBehaviour
         if (buttonPressed || TesterClickPressed())
             bufferUntil = Time.time + inputBuffer;
 
-        if (Time.time <= bufferUntil && CanSwing())
+        if (bufferUntil > 0f && Time.time <= bufferUntil && CanSwing())
+        {
             StartSwing();
+            SwingStarted?.Invoke(ownerHealth.Position, transform.eulerAngles.y);
+        }
+    }
+
+    public void ReplaySwing(Vector3 origin, float yaw)
+    {
+        replaying = true;
+        replayOrigin = origin;
+        replayForward = Quaternion.Euler(0f, yaw, 0f) * Vector3.forward;
+        StartSwing();
     }
 
     bool TesterClickPressed()
@@ -156,8 +176,8 @@ public class MeleeCombat : MonoBehaviour
 
     void DetectHits()
     {
-        Vector3 origin = ownerHealth.Position;
-        Vector3 forward = transform.forward;
+        Vector3 origin = replaying ? replayOrigin : ownerHealth.Position;
+        Vector3 forward = replaying ? replayForward : transform.forward;
         forward.y = 0f;
         forward.Normalize();
 
@@ -171,7 +191,7 @@ public class MeleeCombat : MonoBehaviour
             Collider col = overlapBuffer[i];
             Health target = col.GetComponentInParent<Health>();
 
-            if (target == null || target == ownerHealth) continue;
+            if (target == null || target == ownerHealth || target.IsRemoteReplica) continue;
             if (hitThisSwing.Contains(target)) continue;
             if (target.IsDead || target.IsInvulnerable) continue;
 
@@ -186,11 +206,11 @@ public class MeleeCombat : MonoBehaviour
                 continue;
 
             hitThisSwing.Add(target);
-            Hit(target, point, forward, toTarget.magnitude);
+            Hit(target, point, origin, forward, toTarget.magnitude);
         }
     }
 
-    void Hit(Health target, Vector3 point, Vector3 forward, float distance)
+    void Hit(Health target, Vector3 point, Vector3 origin, Vector3 forward, float distance)
     {
         if (damage > 0f)
             target.TakeDamage(damage, ownerHealth, HitType.Sword);
@@ -200,7 +220,7 @@ public class MeleeCombat : MonoBehaviour
         var knockback = target.GetComponent<KnockbackReceiver>();
         if (knockback != null)
         {
-            Vector3 direction = target.Position - ownerHealth.Position;
+            Vector3 direction = target.Position - origin;
             direction.y = 0f;
             if (direction.sqrMagnitude < 0.01f) direction = forward;
 
@@ -242,7 +262,9 @@ public class MeleeCombat : MonoBehaviour
         var arc = new GameObject("PlaceholderSwingArc");
         arc.transform.SetParent(transform, false);
         swingLine = arc.AddComponent<LineRenderer>();
-        swingLine.material = new Material(Shader.Find("Sprites/Default"));
+        swingLineMaterial = new Material(Shader.Find("Sprites/Default"));
+        swingLine.sharedMaterial = swingLineMaterial;
+        swingPositions = new Vector3[arcPoints];
         swingLine.startColor = swingLine.endColor = new Color(1f, 0.6f, 0.15f, 0.9f);
         swingLine.startWidth = swingLine.endWidth = 0.12f;
         swingLine.positionCount = arcPoints;
@@ -250,6 +272,11 @@ public class MeleeCombat : MonoBehaviour
         swingLine.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         swingLine.receiveShadows = false;
         swingLine.enabled = false;
+    }
+
+    void OnDestroy()
+    {
+        if (swingLineMaterial != null) Destroy(swingLineMaterial);
     }
 
     void LateUpdate()
@@ -271,8 +298,9 @@ public class MeleeCombat : MonoBehaviour
         {
             float angle = -half + arcAngle * i / (arcPoints - 1f);
             Vector3 direction = Quaternion.AngleAxis(angle, Vector3.up) * forward;
-            swingLine.SetPosition(i, origin + direction * reach);
+            swingPositions[i] = origin + direction * reach;
         }
+        swingLine.SetPositions(swingPositions);
     }
 
     static Vector3 ClosestPointSafe(Collider col, Vector3 position)

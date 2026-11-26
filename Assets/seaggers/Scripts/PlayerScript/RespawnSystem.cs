@@ -86,7 +86,7 @@ public class RespawnSystem : MonoBehaviour
         yield return null;
         if (respawnDelay > 0f) yield return new WaitForSeconds(respawnDelay);
 
-        Teleport(ChooseSpawnPosition());
+        PlaceAt(ChooseSpawnPosition());
 
         if (knockback != null) knockback.ResetState();
         health.ResetHealth();
@@ -145,7 +145,7 @@ public class RespawnSystem : MonoBehaviour
         return best.transform.position;
     }
 
-    void Teleport(Vector3 spawnPos)
+    public void PlaceAt(Vector3 spawnPos)
     {
         // Keep the ragdoll and animated body aligned as they move.
         Vector3 delta = spawnPos - feetReference.position + Vector3.up * 0.05f;

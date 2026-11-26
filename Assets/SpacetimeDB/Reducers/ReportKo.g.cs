@@ -12,17 +12,17 @@ namespace SpacetimeDB.Types
 {
     public sealed partial class RemoteReducers : RemoteBase
     {
-        public delegate void AddHandler(ReducerEventContext ctx, string name);
-        public event AddHandler? OnAdd;
+        public delegate void ReportKoHandler(ReducerEventContext ctx, SpacetimeDB.Identity? killer);
+        public event ReportKoHandler? OnReportKo;
 
-        public void Add(string name)
+        public void ReportKo(SpacetimeDB.Identity? killer)
         {
-            conn.InternalCallReducer(new Reducer.Add(name));
+            conn.InternalCallReducer(new Reducer.ReportKo(killer));
         }
 
-        public bool InvokeAdd(ReducerEventContext ctx, Reducer.Add args)
+        public bool InvokeReportKo(ReducerEventContext ctx, Reducer.ReportKo args)
         {
-            if (OnAdd == null)
+            if (OnReportKo == null)
             {
                 if (InternalOnUnhandledReducerError != null)
                 {
@@ -35,9 +35,9 @@ namespace SpacetimeDB.Types
                 }
                 return false;
             }
-            OnAdd(
+            OnReportKo(
                 ctx,
-                args.Name
+                args.Killer
             );
             return true;
         }
@@ -47,22 +47,21 @@ namespace SpacetimeDB.Types
     {
         [SpacetimeDB.Type]
         [DataContract]
-        public sealed partial class Add : Reducer, IReducerArgs
+        public sealed partial class ReportKo : Reducer, IReducerArgs
         {
-            [DataMember(Name = "name")]
-            public string Name;
+            [DataMember(Name = "killer")]
+            public SpacetimeDB.Identity? Killer;
 
-            public Add(string Name)
+            public ReportKo(SpacetimeDB.Identity? Killer)
             {
-                this.Name = Name;
+                this.Killer = Killer;
             }
 
-            public Add()
+            public ReportKo()
             {
-                this.Name = "";
             }
 
-            string IReducerArgs.ReducerName => "add";
+            string IReducerArgs.ReducerName => "report_ko";
         }
     }
 }

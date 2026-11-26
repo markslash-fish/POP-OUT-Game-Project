@@ -63,6 +63,7 @@ public class HudController : MonoBehaviour
     public GameObject resultsPanel;
     public TMP_Text resultsText;
     public float resultsDelay = 1.5f;
+    public System.Action OnlinePlayAgain { get; set; }
 
     float hpPct = 1f;
     float trailPct = 1f;
@@ -79,6 +80,12 @@ public class HudController : MonoBehaviour
     {
         if (match == null) match = FindFirstObjectByType<MatchManager>();
         if (scoreManager == null) scoreManager = FindFirstObjectByType<ScoreManager>();
+        if (OnlinePlayAgain != null && scoreboardText != null)
+        {
+            scoreboardText.fontSizeMax = scoreboardText.fontSize;
+            scoreboardText.textWrappingMode = TextWrappingModes.NoWrap;
+            scoreboardText.enableAutoSizing = true;
+        }
 
         if (centerText != null) centerText.text = "";
         if (bannerText != null) bannerText.text = "";
@@ -364,7 +371,8 @@ public class HudController : MonoBehaviour
     public void OnPlayAgain()
     {
         HideResults();
-        if (match != null) match.StartMatch();
+        if (OnlinePlayAgain != null) OnlinePlayAgain();
+        else if (match != null) match.StartMatch();
     }
 
     // ------------------------------------------------------------ pop-up text
