@@ -35,6 +35,7 @@ public class Health : MonoBehaviour
     public float LastHitTime { get; private set; }
     public DeathCause LastDeathCause { get; private set; }
     public Vector3 Position => anchor != null ? anchor.position : transform.position;
+    public StatusEffectSystem Status { get; private set; }   // found automatically (can be null)
 
     float invulnerableUntil;
     public bool IsInvulnerable => Time.time < invulnerableUntil;
@@ -46,6 +47,7 @@ public class Health : MonoBehaviour
     void Awake()
     {
         Current = maxHealth;
+        Status = GetComponent<StatusEffectSystem>();
 
         if (anchor == null)
         {
@@ -124,6 +126,7 @@ public class Health : MonoBehaviour
 
     void Die(DeathCause cause)
     {
+        if (IsDead) return;   // never die twice (nested damage from color effects)
         IsDead = true;
         LastDeathCause = cause;
 

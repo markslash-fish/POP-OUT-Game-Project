@@ -31,6 +31,14 @@ public class HudController : MonoBehaviour
     public TMP_Text scoreText;
     public Thrower thrower;                  // optional: shows balloon ammo
     public TMP_Text ammoText;                // optional
+
+    [Header("Color / stacks / status (optional)")]
+    public PlayerColorIdentity localColor;
+    public ColorStackSystem localStacks;
+    public StatusEffectSystem localStatus;
+    public TMP_Text colorText;               // "BLUE" (in that color)
+    public TMP_Text stackText;               // "STACKS 2/3"
+    public TMP_Text statusText;              // "STUN  SLOW"
     public GameObject shieldIcon;            // optional
     public Color hpFull = new Color(0.3f, 0.9f, 0.35f);
     public Color hpLow = new Color(0.95f, 0.25f, 0.2f);
@@ -89,6 +97,9 @@ public class HudController : MonoBehaviour
             match.MatchEnded += OnMatchEnded;
         }
         if (scoreManager != null) scoreManager.ScoreChanged += OnScoreChanged;
+        if (localColor != null) localColor.ColorChanged += OnColorChanged;
+        if (localStacks != null) localStacks.StacksChanged += OnStacksChanged;
+        if (localStatus != null) localStatus.StatusChanged += OnStatusChanged;
         if (localPlayer != null)
         {
             localPlayer.HealthChanged += RefreshHealth;
@@ -106,6 +117,9 @@ public class HudController : MonoBehaviour
             match.MatchEnded -= OnMatchEnded;
         }
         if (scoreManager != null) scoreManager.ScoreChanged -= OnScoreChanged;
+        if (localColor != null) localColor.ColorChanged -= OnColorChanged;
+        if (localStacks != null) localStacks.StacksChanged -= OnStacksChanged;
+        if (localStatus != null) localStatus.StatusChanged -= OnStatusChanged;
         if (localPlayer != null)
         {
             localPlayer.HealthChanged -= RefreshHealth;
@@ -126,6 +140,10 @@ public class HudController : MonoBehaviour
         RefreshScore();
         RebuildScoreboard();
         if (match != null) SetTimer(match.TotalDuration);
+
+        if (localColor != null) OnColorChanged(localColor.CurrentColor);
+        OnStacksChanged(localStacks != null ? localStacks.Stacks : 0);
+        OnStatusChanged();
     }
 
     void Update()
@@ -232,6 +250,28 @@ public class HudController : MonoBehaviour
             sb.Append('\n');
         }
         scoreboardText.text = sb.ToString();
+    }
+
+    // ------------------------------------------------------------ color / stacks / status
+
+    void OnColorChanged(PlayerColor color)
+    {
+        if (colorText == null) return;
+        colorText.text = PlayerColorInfo.DisplayName(color);
+        colorText.color = PlayerColorInfo.ToColor(color);
+    }
+
+    void OnStacksChanged(int stacks)
+    {
+        if (stackText == null) return;
+        int max = localStacks != null ? localStacks.threshold : 3;
+        stackText.text = "STACKS " + stacks + "/" + max;
+    }
+
+    void OnStatusChanged()
+    {
+        if (statusText == null) return;
+        statusText.text = localStatus != null ? localStatus.DescribeActive() : "";
     }
 
     // ------------------------------------------------------------ timer + phases

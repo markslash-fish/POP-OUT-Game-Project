@@ -77,6 +77,8 @@ public class Thrower : MonoBehaviour
     bool CanStartAiming()
     {
         if (ownerHealth != null && ownerHealth.IsDead) return false;
+        var st = ownerHealth != null ? ownerHealth.Status : null;
+        if (st != null && !st.CanAttack) return false;   // stunned or disarmed
         return !reloading && ammo > 0 && Time.time >= nextThrowTime;
     }
 
@@ -90,7 +92,8 @@ public class Thrower : MonoBehaviour
         }
 
         // died while holding a balloon: drop it
-        if (held != null && !releasing && ownerHealth != null && ownerHealth.IsDead) CancelThrow();
+        if (held != null && !releasing && ownerHealth != null &&
+            (ownerHealth.IsDead || (ownerHealth.Status != null && !ownerHealth.Status.CanAttack))) CancelThrow();
 
         // Match not in "Playing" (countdown / ended): drop the balloon and ignore input
         if (!MatchManager.InputEnabled)

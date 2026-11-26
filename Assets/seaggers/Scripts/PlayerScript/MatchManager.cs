@@ -75,6 +75,7 @@ public class MatchManager : MonoBehaviour
 
     // ---- Events (HUD, ArenaEventManager, ColorAssigner... will listen to these) ----
     public event Action<MatchState> StateChanged;
+    public event Action MatchStarting;
     public event Action<int> CountdownTick;                           // 3, 2, 1
     public event Action<int, PhaseDef> PhaseChanged;                  // (index, phase)
     public event Action<List<KeyValuePair<Health, int>>> MatchEnded;  // full ranking, highest first
@@ -117,6 +118,7 @@ public class MatchManager : MonoBehaviour
             ScoreManager.Instance.ResetScores();
             ScoreManager.Instance.acceptingScores = false;   // no points during the countdown
         }
+        MatchStarting?.Invoke();
 
         if (countdownSeconds > 0f)
         {

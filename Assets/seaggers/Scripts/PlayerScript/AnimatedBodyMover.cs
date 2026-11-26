@@ -8,6 +8,7 @@ public class AnimatedBodyMover : MonoBehaviour
     public VirtualJoystick joystick;        // LEFT stick: movement
     public VirtualJoystick aimJoystick;     // MOBILE: RIGHT stick: aim + throw (optional on PC)
     public Transform cameraTransform;       // leave empty = uses Camera.main
+    public StatusEffectSystem status;       // the player's StatusEffectSystem (stun / disarm / slow)
 
     Animator animator;
     Vector2 moveInput;                      // x = left/right, y = up/down on screen (max length 1)
@@ -44,12 +45,13 @@ public class AnimatedBodyMover : MonoBehaviour
 
         animator.SetFloat("Speed", moveInput.magnitude, 0.1f, Time.deltaTime);
 
-        bool canInput = MatchManager.InputEnabled;   // false during countdown / after the match
+        bool canInput = MatchManager.InputEnabled && !IsStunned();   // false during countdown / after the match / while stunned
+        bool canAct = canInput && !IsDisarmed();                     // disarmed players cannot hold a balloon
         // Swing (melee) is handled by MeleeCombat now
         if (canInput && Input.GetKeyDown(KeyCode.E)) animator.SetTrigger("Throw");
 
         // MOBILE: aim stick counts as "holding" too
-        holding = canInput && (Input.GetMouseButton(1) || (aimJoystick != null && aimJoystick.IsPressed));
+        holding = canAct && (Input.GetMouseButton(1) || (aimJoystick != null && aimJoystick.IsPressed));
 
         // releasing = throw
         if (wasHolding && !holding)
@@ -73,7 +75,7 @@ public class AnimatedBodyMover : MonoBehaviour
 
     void ReadMoveInput()
     {
-        if (!MatchManager.InputEnabled) { moveInput = Vector2.zero; return; }
+        if (!MatchManager.InputEnabled || IsStunned()) { moveInput = Vector2.zero; return; }
 
         Vector2 input = Vector2.zero;
 
@@ -92,7 +94,7 @@ public class AnimatedBodyMover : MonoBehaviour
         Vector3 moveDir = ToWorld(moveInput);
 
         // MOBILE: while the aim stick is held, face where the stick points (move stick still lets you walk)
-        Vector3 aimDir = (MatchManager.InputEnabled && aimJoystick != null && aimJoystick.IsPressed) ? ToWorld(aimJoystick.Value) : Vector3.zero;
+        Vector3 aimDir = (MatchManager.InputEnabled && !IsStunned() && aimJoystick != null && aimJoystick.IsPressed) ? ToWorld(aimJoystick.Value) : Vector3.zero;
         Vector3 faceDir = aimDir.sqrMagnitude > 0.0001f ? aimDir : moveDir;
 
         if (faceDir.sqrMagnitude > 0.0001f)
@@ -102,7 +104,7 @@ public class AnimatedBodyMover : MonoBehaviour
         }
 
         if (moveDir.sqrMagnitude > 0.0001f)
-            transform.position += moveDir.normalized * moveInput.magnitude * moveSpeed * Time.fixedDeltaTime;
+            transform.position += moveDir.normalized * moveInput.magnitude * moveSpeed * SpeedMultiplier() * Time.fixedDeltaTime;
     }
 
     // Screen-style 2D input -> flat world direction relative to the camera
@@ -119,6 +121,11 @@ public class AnimatedBodyMover : MonoBehaviour
         }
         return camRight * input.x + camForward * input.y;
     }
+
+    // ---- status effects (Stun / Disarm / Slow) ----
+    bool IsStunned() { return status != null && status.IsStunned; }
+    bool IsDisarmed() { return status != null && status.IsDisarmed; }
+    float SpeedMultiplier() { return status != null ? status.SpeedMultiplier : 1f; }
 
     void SetArmDrive(ConfigurableJoint j, float spring, float damper)
     {

@@ -7,6 +7,12 @@ using UnityEngine;
 /// </summary>
 public class MeleeCombat : MonoBehaviour
 {
+    [Header("Slash VFX")]
+    public GameObject slashVfxPrefab;
+    public Transform slashVfxPoint;
+    [Min(0.1f)] public float slashVfxLifetime = 1.5f;
+
+    bool playedSlashVfx;
     [Header("References")]
     public Health ownerHealth;               // the player's Health (Physical_Body)
     public Animator animator;                // auto: same object
@@ -70,6 +76,7 @@ public class MeleeCombat : MonoBehaviour
     bool CanSwing()
     {
         if (ownerHealth == null || ownerHealth.IsDead) return false;
+        if (ownerHealth.Status != null && !ownerHealth.Status.CanAttack) return false;   // stunned or disarmed
         if (Time.time < nextAttackTime) return false;
         if (mover != null && mover.holding) return false;   // arms are busy aiming a balloon
         return true;
@@ -82,6 +89,7 @@ public class MeleeCombat : MonoBehaviour
         windupEnd = Time.time + windup;
         activeEnd = windupEnd + activeTime;
         swinging = true;
+        playedSlashVfx = false;
         hitThisSwing.Clear();
 
         if (hasSwingParam) animator.SetTrigger(swingTrigger);   // skipped while the animation does not exist yet
@@ -92,6 +100,19 @@ public class MeleeCombat : MonoBehaviour
         if (!swinging) return;
         if (ownerHealth == null || ownerHealth.IsDead || Time.time >= activeEnd) { swinging = false; return; }
         if (Time.time < windupEnd) return;
+        if (!playedSlashVfx && slashVfxPrefab != null)
+        {
+            playedSlashVfx = true;
+            Vector3 position = slashVfxPoint != null
+                ? slashVfxPoint.position
+                : ownerHealth.Position;
+            Quaternion rotation = slashVfxPoint != null
+                ? slashVfxPoint.rotation
+                : transform.rotation;
+
+            var effect = Instantiate(slashVfxPrefab, position, rotation);
+            Destroy(effect, slashVfxLifetime);
+        }
 
         DetectHits();
     }
