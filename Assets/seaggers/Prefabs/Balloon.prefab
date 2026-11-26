@@ -31,7 +31,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 8.166, y: 0.469, z: -7.75}
-  m_LocalScale: {x: 0.7867306, y: 0.7867306, z: 0.7867306}
+  m_LocalScale: {x: 15, y: 15, z: 15}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -156,10 +156,10 @@ MonoBehaviour:
   color: {r: 0.2, g: 0.5, b: 1, a: 1}
   particleCount: 40
   burstSpeed: 5
-  size: 0.15
+  size: 1
   lifetime: 0.6
   ignoreLayers:
     serializedVersion: 2
     m_Bits: 192
   pushRadius: 2.5
-  pushForce: 0
+  pushForce: 20
