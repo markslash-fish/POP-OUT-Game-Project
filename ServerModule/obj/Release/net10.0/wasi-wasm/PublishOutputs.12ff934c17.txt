@@ -1,0 +1,2 @@
+D:\Game Repo Clones\POP-OUT-Game-Project\Servermodule\bin\Release\net10.0\wasi-wasm\publish\StdbModule.wasm
+D:\Game Repo Clones\POP-OUT-Game-Project\Servermodule\bin\Release\net10.0\wasi-wasm\publish\StdbModule.deps.json

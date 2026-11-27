@@ -1,5 +1,12 @@
 {
   "dependencies": {
+    "com.clockworklabs.spacetimedbsdk": {
+      "version": "https://github.com/clockworklabs/com.clockworklabs.spacetimedbsdk.git",
+      "depth": 0,
+      "source": "git",
+      "dependencies": {},
+      "hash": "5d396c4aede86129ea1db1be6f489c7ff94ec9b4"
+    },
     "com.unity.ai.navigation": {
       "version": "2.0.9",
       "depth": 0,

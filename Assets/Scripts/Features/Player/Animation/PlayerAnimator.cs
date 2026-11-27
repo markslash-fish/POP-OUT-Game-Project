@@ -7,7 +7,7 @@ public class PlayerAnimator : MonoBehaviour
     private static readonly int IsMoving = Animator.StringToHash("IsMoving");
     private static readonly int IsGrounded = Animator.StringToHash("isGrounded");
     private static readonly int Jump = Animator.StringToHash("Jump");
-    private static readonly int IsAiming = Animator.StringToHash("IsAiming");
+    private static readonly int IsAimingHash = Animator.StringToHash("IsAiming");
     private static readonly int Throw = Animator.StringToHash("Throw");
 
     [SerializeField] private string holdThrowLayerName = "Hold/Throw Bomb";
@@ -18,6 +18,8 @@ public class PlayerAnimator : MonoBehaviour
     public UnityEvent ThrowStarted => throwStarted;
     public UnityEvent ThrowFinished => throwFinished;
     public bool IsThrowAnimationActive { get; private set; }
+
+    public bool IsAiming => animator != null && animator.GetBool(IsAimingHash);
 
     private Animator animator;
     private PlayerMovement playerMovement;
@@ -100,7 +102,7 @@ public class PlayerAnimator : MonoBehaviour
         }
 
         animator.ResetTrigger(Throw);
-        animator.SetBool(IsAiming, aiming);
+        animator.SetBool(IsAimingHash, aiming);
         SetHoldThrowWeight(aiming ? 1f : 0f);
     }
 
@@ -117,7 +119,7 @@ public class PlayerAnimator : MonoBehaviour
         }
 
         animator.ResetTrigger(Throw);
-        animator.SetBool(IsAiming, true);
+        animator.SetBool(IsAimingHash, true);
         animator.SetTrigger(Throw);
         SetHoldThrowWeight(1f);
         IsThrowAnimationActive = true;
@@ -139,7 +141,7 @@ public class PlayerAnimator : MonoBehaviour
             FinishThrowAnimation();
         }
 
-        animator.SetBool(IsAiming, false);
+        animator.SetBool(IsAimingHash, false);
         animator.ResetTrigger(Throw);
         SetHoldThrowWeight(0f);
     }
@@ -169,7 +171,7 @@ public class PlayerAnimator : MonoBehaviour
             yield return null;
         }
 
-        animator.SetBool(IsAiming, false);
+        animator.SetBool(IsAimingHash, false);
         animator.ResetTrigger(Throw);
 
         if (enteredThrow)

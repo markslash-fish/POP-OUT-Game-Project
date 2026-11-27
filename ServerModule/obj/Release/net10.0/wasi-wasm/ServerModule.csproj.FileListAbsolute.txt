@@ -1,0 +1,13 @@
+D:\Game Repo Clones\POP-OUT-Game-Project\ServerModule\obj\Release\net10.0\wasi-wasm\ServerModule.csproj.AssemblyReference.cache
+D:\Game Repo Clones\POP-OUT-Game-Project\ServerModule\obj\Release\net10.0\wasi-wasm\ServerModule.GeneratedMSBuildEditorConfig.editorconfig
+D:\Game Repo Clones\POP-OUT-Game-Project\ServerModule\obj\Release\net10.0\wasi-wasm\ServerModule.AssemblyInfoInputs.cache
+D:\Game Repo Clones\POP-OUT-Game-Project\ServerModule\obj\Release\net10.0\wasi-wasm\ServerModule.AssemblyInfo.cs
+D:\Game Repo Clones\POP-OUT-Game-Project\ServerModule\obj\Release\net10.0\wasi-wasm\ServerModule.csproj.CoreCompileInputs.cache
+D:\Game Repo Clones\POP-OUT-Game-Project\ServerModule\obj\Release\net10.0\wasi-wasm\ServerModule.sourcelink.json
+D:\Game Repo Clones\POP-OUT-Game-Project\ServerModule\bin\Release\net10.0\wasi-wasm\StdbModule.deps.json
+D:\Game Repo Clones\POP-OUT-Game-Project\ServerModule\bin\Release\net10.0\wasi-wasm\StdbModule.dll
+D:\Game Repo Clones\POP-OUT-Game-Project\ServerModule\bin\Release\net10.0\wasi-wasm\StdbModule.pdb
+D:\Game Repo Clones\POP-OUT-Game-Project\ServerModule\obj\Release\net10.0\wasi-wasm\StdbModule.dll
+D:\Game Repo Clones\POP-OUT-Game-Project\ServerModule\obj\Release\net10.0\wasi-wasm\refint\StdbModule.dll
+D:\Game Repo Clones\POP-OUT-Game-Project\ServerModule\obj\Release\net10.0\wasi-wasm\StdbModule.pdb
+D:\Game Repo Clones\POP-OUT-Game-Project\ServerModule\obj\Release\net10.0\wasi-wasm\ref\StdbModule.dll
