@@ -80,6 +80,8 @@ public class HudController : MonoBehaviour
     {
         if (match == null) match = FindFirstObjectByType<MatchManager>();
         if (scoreManager == null) scoreManager = FindFirstObjectByType<ScoreManager>();
+        if (scoreboardText != null) scoreboardText.parseCtrlCharacters = false;
+        if (resultsText != null) resultsText.parseCtrlCharacters = false;
         if (OnlinePlayAgain != null && scoreboardText != null)
         {
             scoreboardText.fontSizeMax = scoreboardText.fontSize;
@@ -252,12 +254,16 @@ public class HudController : MonoBehaviour
             var h = ranking[i].Key;
             bool me = h == localPlayer;
             if (me) sb.Append("<color=#").Append(ColorUtility.ToHtmlStringRGB(localPlayerColor)).Append('>');
-            sb.Append(i + 1).Append(". ").Append(h.playerName).Append("   ").Append(ranking[i].Value);
+            sb.Append(i + 1).Append(". ").Append(ScoreboardName(h.playerName)).Append("   ").Append(ranking[i].Value);
             if (me) sb.Append("</color>");
             sb.Append('\n');
         }
         scoreboardText.text = sb.ToString();
     }
+
+    static string ScoreboardName(string name) => name
+        .Replace('<', '‹').Replace('>', '›').Replace('\n', ' ').Replace('\r', ' ')
+        .Replace('\u2028', ' ').Replace('\u2029', ' ');
 
     // ------------------------------------------------------------ color / stacks / status
 
@@ -351,7 +357,7 @@ public class HudController : MonoBehaviour
         string[] medals = { "1ST", "2ND", "3RD" };
         sb.Clear();
         for (int i = 0; i < ranking.Count && i < 3; i++)
-            sb.Append(medals[i]).Append("   ").Append(ranking[i].Key.playerName).Append("   ").Append(ranking[i].Value).Append('\n');
+            sb.Append(medals[i]).Append("   ").Append(ScoreboardName(ranking[i].Key.playerName)).Append("   ").Append(ranking[i].Value).Append('\n');
         resultsText.text = sb.ToString();
     }
 

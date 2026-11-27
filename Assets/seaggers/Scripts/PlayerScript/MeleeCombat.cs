@@ -41,7 +41,7 @@ public class MeleeCombat : MonoBehaviour
 
     float nextAttackTime, bufferUntil, windupEnd, activeEnd;
     bool swinging;
-    bool playedSlashVfx;
+    bool openedHitWindow;
     readonly HashSet<Health> hitThisSwing = new HashSet<Health>();
     readonly List<RaycastResult> pointerHits = new List<RaycastResult>();
     readonly Collider[] overlapBuffer = new Collider[128];
@@ -51,7 +51,7 @@ public class MeleeCombat : MonoBehaviour
     Vector3[] swingPositions;
     const int arcPoints = 13;
 
-    public event System.Action<Vector3, float> SwingStarted;
+    public event System.Action<Vector3, float> SwingActive;
     bool replaying;
     Vector3 replayOrigin;
     Vector3 replayForward;
@@ -83,18 +83,14 @@ public class MeleeCombat : MonoBehaviour
             bufferUntil = Time.time + inputBuffer;
 
         if (bufferUntil > 0f && Time.time <= bufferUntil && CanSwing())
-        {
-            StartSwing();
-            SwingStarted?.Invoke(ownerHealth.Position, transform.eulerAngles.y);
-        }
+            StartSwing(false);
     }
 
     public void ReplaySwing(Vector3 origin, float yaw)
     {
-        replaying = true;
         replayOrigin = origin;
         replayForward = Quaternion.Euler(0f, yaw, 0f) * Vector3.forward;
-        StartSwing();
+        StartSwing(true);
     }
 
     bool TesterClickPressed()
@@ -130,14 +126,15 @@ public class MeleeCombat : MonoBehaviour
         return true;
     }
 
-    void StartSwing()
+    void StartSwing(bool replay)
     {
+        replaying = replay;
         bufferUntil = 0f;
         nextAttackTime = Time.time + cooldown;
-        windupEnd = Time.time + windup;
+        windupEnd = Time.time + (replay ? 0f : windup);
         activeEnd = windupEnd + activeTime;
         swinging = true;
-        playedSlashVfx = false;
+        openedHitWindow = false;
         hitThisSwing.Clear();
 
         if (hasSwingParam) animator.SetTrigger(swingTrigger);
@@ -155,23 +152,30 @@ public class MeleeCombat : MonoBehaviour
 
         if (Time.time < windupEnd) return;
 
-        if (!playedSlashVfx && slashVfxPrefab != null)
+        if (!openedHitWindow)
         {
-            playedSlashVfx = true;
-
-            Vector3 position = slashVfxPoint != null
-                ? slashVfxPoint.position
-                : ownerHealth.Position;
-
-            Quaternion rotation = slashVfxPoint != null
-                ? slashVfxPoint.rotation
-                : transform.rotation;
-
-            var effect = Instantiate(slashVfxPrefab, position, rotation);
-            Destroy(effect, slashVfxLifetime);
+            openedHitWindow = true;
+            if (!replaying) SwingActive?.Invoke(ownerHealth.Position, transform.eulerAngles.y);
+            PlaySlashVfx();
         }
 
         DetectHits();
+    }
+
+    void PlaySlashVfx()
+    {
+        if (slashVfxPrefab == null) return;
+
+        Vector3 position = slashVfxPoint != null
+            ? slashVfxPoint.position
+            : ownerHealth.Position;
+
+        Quaternion rotation = slashVfxPoint != null
+            ? slashVfxPoint.rotation
+            : transform.rotation;
+
+        var effect = Instantiate(slashVfxPrefab, position, rotation);
+        Destroy(effect, slashVfxLifetime);
     }
 
     void DetectHits()

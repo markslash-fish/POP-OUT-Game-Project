@@ -17,9 +17,10 @@ public class VirtualJoystick : MonoBehaviour, IPointerDownHandler, IDragHandler,
     public float dragRadius = 0f;                     // in Canvas units (reference resolution)
 
     public Vector2 Value { get; private set; }
-    public bool IsPressed { get; private set; }
+    public bool IsPressed => activePointer.HasValue;
 
     RectTransform background;
+    int? activePointer;
 
     void Awake()
     {
@@ -28,12 +29,16 @@ public class VirtualJoystick : MonoBehaviour, IPointerDownHandler, IDragHandler,
 
     public void OnPointerDown(PointerEventData eventData)
     {
-        IsPressed = true;
+        if (eventData.button != PointerEventData.InputButton.Left || activePointer.HasValue) return;
+
+        activePointer = eventData.pointerId;
         OnDrag(eventData);
     }
 
     public void OnDrag(PointerEventData eventData)
     {
+        if (activePointer != eventData.pointerId) return;
+
         if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
                 background, eventData.position, eventData.pressEventCamera, out Vector2 local))
             return;
@@ -53,17 +58,17 @@ public class VirtualJoystick : MonoBehaviour, IPointerDownHandler, IDragHandler,
 
     public void OnPointerUp(PointerEventData eventData)
     {
-        ResetStick();
+        if (activePointer == eventData.pointerId) CancelPress();
     }
 
     void OnDisable()
     {
-        ResetStick();
+        CancelPress();
     }
 
-    void ResetStick()
+    internal void CancelPress()
     {
-        IsPressed = false;
+        activePointer = null;
         Value = Vector2.zero;
         if (handle != null) handle.anchoredPosition = Vector2.zero;
     }

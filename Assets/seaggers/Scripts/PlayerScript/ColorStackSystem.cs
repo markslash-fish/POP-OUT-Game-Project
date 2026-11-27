@@ -21,6 +21,7 @@ public class ColorStackSystem : MonoBehaviour
     public float decayInterval = 1f;            // then 1 stack is lost every second
 
     public int Stacks { get; private set; }
+    internal bool UseNetworkHits { get; set; }
     public event Action<int> StacksChanged;                     // HUD
     public event Action<PlayerColor, Health> AbilityTriggered;  // for future VFX / sound
 
@@ -54,27 +55,34 @@ public class ColorStackSystem : MonoBehaviour
 
     void OnAnyDamaged(Health victim, Health attacker, float amount, HitType type)
     {
+        if (UseNetworkHits) return;
         if (attacker != health || victim == health) return;                     // only OUR hits on OTHER players
         if (type != HitType.BalloonCenter && type != HitType.BalloonOuter) return;   // sword / burn / hazards give no stacks
         if (!CombatRules.StacksEnabled) return;                                  // "Oh Noir!"
 
+        int next = StacksAfterHit(Stacks, type == HitType.BalloonCenter, out bool triggersAbility);
+        CommitHitStacks(next);
+        if (triggersAbility) ApplyAbility(victim);
+    }
+
+    internal int StacksAfterHit(int current, bool directHit, out bool triggersAbility)
+    {
+        if (CombatRules.InstantProc)
+        {
+            triggersAbility = true;
+            return current;
+        }
+
+        int total = current + (directHit ? centerHitStacks : outerHitStacks);
+        triggersAbility = total >= threshold;
+        return triggersAbility ? total - threshold : total;
+    }
+
+    internal void CommitHitStacks(int value)
+    {
         lastHitTime = Time.time;
         nextDecayTime = 0f;
-
-        if (CombatRules.InstantProc)                                             // "P-aint No Chill"
-        {
-            TriggerAbility(victim);
-            return;
-        }
-
-        int gained = type == HitType.BalloonCenter ? centerHitStacks : outerHitStacks;
-        SetStacks(Stacks + gained);
-
-        if (Stacks >= threshold)
-        {
-            SetStacks(Stacks - threshold);   // overflow: 2 + 2 = 4 -> trigger, 1 stack carries over
-            TriggerAbility(victim);
-        }
+        SetStacks(value);
     }
 
     void Update()
@@ -96,11 +104,12 @@ public class ColorStackSystem : MonoBehaviour
     }
 
     // ---------------------------------------------------------------- the 7 color effects
-    void TriggerAbility(Health victim)
+    internal float ApplyAbility(Health victim)
     {
         PlayerColor color = identity != null ? identity.CurrentColor : PlayerColor.Red;
         AbilityTriggered?.Invoke(color, victim);
-        Debug.Log(health.playerName + " triggers " + color + " on " + victim.playerName);
+        Debug.Log(victim != null ? $"{health.playerName} triggers {color} on {victim.playerName}" :
+            $"{health.playerName} triggers {color}");
 
         bool victimAlive = victim != null && !victim.IsDead && victim.Current > 0f;
         StatusEffectSystem vs = victim != null ? victim.Status : null;
@@ -120,7 +129,11 @@ public class ColorStackSystem : MonoBehaviour
                 if (!victimAlive) break;
                 if (vs != null && vs.IsImmuneTo(StatusType.Lifesteal)) break;
                 float drain = victim.Current * s.lifestealPercentOfCurrentHealth;
-                if (victim.TakeDamage(drain, health, HitType.Other)) health.Heal(drain);
+                if (victim.TakeDamage(drain, health, HitType.Other))
+                {
+                    if (!health.IsRemoteReplica) health.Heal(drain);
+                    return drain;
+                }
                 break;
 
             case PlayerColor.Red:      // Burn: 5% max HP per second for 3 seconds
@@ -137,8 +150,9 @@ public class ColorStackSystem : MonoBehaviour
                 break;
 
             case PlayerColor.Orange:   // Buff on the USER: immune to Stun, Slow, Burn, Disarm, Lifesteal
-                if (health.Status != null) health.Status.AddNegativeImmunity(s.orangeImmunityDuration);
+                if (!health.IsRemoteReplica && !health.IsDead) health.Status?.AddNegativeImmunity(s.orangeImmunityDuration);
                 break;
         }
+        return 0f;
     }
 }

@@ -2,9 +2,11 @@ using System.Collections.Generic;
 using SpacetimeDB.Types;
 using UnityEngine;
 
+internal enum ThrowPose { Idle, Aiming, Throwing }
+
 internal sealed class PopOutRemotePlayer
 {
-    const float FollowRate = 15f;
+    const float FollowRate = 22f;
     const float TeleportDistance = 4f;
     static readonly int SpeedParameter = Animator.StringToHash("Speed");
 
@@ -12,27 +14,36 @@ internal sealed class PopOutRemotePlayer
     readonly Animator animator;
     readonly Thrower thrower;
     readonly MeleeCombat melee;
+    readonly PlayerHitBadges hitBadges;
+    readonly float holdBlendSpeed;
     readonly List<(Transform physical, Transform animated)> bones = new();
     readonly Collider[] colliders;
+    readonly Dictionary<int, GameObject> balloons = new();
 
     Vector3 targetPosition;
     float targetYaw;
     float targetSpeed;
+    float holdWeight;
+    ThrowPose throwPose;
     uint deaths;
     bool hasPose;
     bool snap;
 
     public Health Health { get; }
+    public ColorStackSystem Stacks { get; }
     public bool HasPose => hasPose;
 
     public PopOutRemotePlayer(GameObject clone, RoomPlayerState row)
     {
         Health = clone.GetComponent<Health>();
+        Stacks = clone.GetComponent<ColorStackSystem>();
+        Stacks.UseNetworkHits = true;
         Health.playerName = row.Name;
         Health.RoomSlot = row.Slot;
         rig = clone.GetComponent<ActiveRagdoll>();
         thrower = clone.GetComponent<Thrower>();
         melee = clone.GetComponentInChildren<MeleeCombat>(true);
+        hitBadges = clone.GetComponentInChildren<PlayerHitBadges>(true);
         animator = rig.animatedRoot.GetComponent<Animator>();
         colliders = clone.GetComponentsInChildren<Collider>(true);
 
@@ -41,7 +52,9 @@ internal sealed class PopOutRemotePlayer
         clone.GetComponent<RespawnSystem>().enabled = false;
         clone.GetComponent<RingOutDetector>().enabled = false;
         clone.GetComponent<PlayerJump>().enabled = false;
-        rig.animatedRoot.GetComponent<AnimatedBodyMover>().enabled = false;
+        var mover = rig.animatedRoot.GetComponent<AnimatedBodyMover>();
+        holdBlendSpeed = mover.holdBlendSpeed;
+        mover.enabled = false;
         foreach (var toggle in clone.GetComponentsInChildren<LegGroundToggle>(true)) toggle.enabled = false;
         foreach (Rigidbody body in clone.GetComponentsInChildren<Rigidbody>(true)) body.isKinematic = true;
 
@@ -64,9 +77,10 @@ internal sealed class PopOutRemotePlayer
                 Physics.IgnoreCollision(localCollider, remoteCollider);
     }
 
-    public void Apply(RoomPlayerState row)
+    public void Apply(RoomPlayerState row, float speed, ThrowPose pose)
     {
         Health.ApplyRemoteState(row.Health * Health.maxHealth, row.Shielded);
+        if (row.Deaths != deaths || Health.IsDead) hitBadges?.ClearBadges();
         if (!row.HasPose) return;
 
         Vector3 position = new Vector3(row.X, row.Y, row.Z);
@@ -77,7 +91,9 @@ internal sealed class PopOutRemotePlayer
 
         targetPosition = position;
         targetYaw = row.Yaw;
-        targetSpeed = row.Speed;
+        targetSpeed = speed;
+        if (pose == ThrowPose.Throwing && throwPose != pose) animator.SetTrigger("Throw");
+        throwPose = pose;
         hasPose = true;
         deaths = row.Deaths;
     }
@@ -90,7 +106,10 @@ internal sealed class PopOutRemotePlayer
         float yaw = Mathf.LerpAngle(rig.animatedRoot.eulerAngles.y, targetYaw, weight);
         rig.animatedRoot.rotation = Quaternion.Euler(0f, yaw, 0f);
         rig.animatedRoot.position += spinePosition - rig.animatedSpine.position;
-        animator.SetFloat(SpeedParameter, targetSpeed, 0.1f, Time.deltaTime);
+        animator.SetFloat(SpeedParameter, targetSpeed, 0.06f, Time.deltaTime);
+        holdWeight = Mathf.MoveTowards(holdWeight, throwPose == ThrowPose.Aiming ? 1f : 0f,
+            holdBlendSpeed * Time.deltaTime);
+        animator.SetLayerWeight(1, holdWeight);
 
         // Preserve the animated joint rotation and keep the physical rig's skinned mesh.
         foreach (var (physical, animated) in bones)
@@ -101,10 +120,28 @@ internal sealed class PopOutRemotePlayer
         snap = false;
     }
 
-    public void Throw(Vector3 position, Vector3 velocity)
+    public void LaunchBalloon(int shot, Vector3 position, Vector3 velocity)
     {
-        animator.SetTrigger("Throw");
-        thrower.ReplayThrow(position, velocity);
+        if (balloons.TryGetValue(shot, out GameObject previous) && previous != null) return;
+        balloons[shot] = thrower.ShowRemoteBalloon(position, velocity);
+    }
+
+    public bool ImpactBalloon(int shot, Vector3 point, Health victim, bool directHit, out bool damaged)
+    {
+        damaged = false;
+        if (!balloons.Remove(shot, out GameObject balloon)) return false;
+
+        Object.Destroy(balloon);
+        damaged = thrower.ShowRemoteImpact(point, victim, directHit);
+        return true;
+    }
+
+    public void ShowHitBadge(Health attacker) => hitBadges?.ShowBalloonHit(attacker);
+
+    public void ClearBalloons()
+    {
+        foreach (GameObject balloon in balloons.Values) Object.Destroy(balloon);
+        balloons.Clear();
     }
 
     public void Swing(Vector3 position, float yaw)

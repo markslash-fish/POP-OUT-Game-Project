@@ -160,11 +160,11 @@ MonoBehaviour:
   lifetime: 0.6
   ignoreLayers:
     serializedVersion: 2
-    m_Bits: 192
+    m_Bits: 0
   pushRadius: 2.5
   pushForce: 0
-  centerDamagePercent: 0.416
-  outerDamagePercent: 0.306
+  centerDamagePercent: 0.2
+  outerDamagePercent: 0.1
   knockbackSpeed: 10
   outerKnockbackScale: 0.6
   knockbackUpward: 0.3

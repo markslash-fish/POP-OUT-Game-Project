@@ -12,16 +12,22 @@ public class CombatTouchPad : MaskableGraphic, ICanvasRaycastFilter,
     [Min(0f)] public float dividerWidth = 6f;
 
     int? aimPointer;
+    RectTransform aimIcon;
+    Vector2 aimIconPosition;
 
-    protected override void Start()
+    protected override void OnEnable()
     {
-        base.Start();
-        if (Application.isPlaying) HideAim();
+        base.OnEnable();
+        if (bombAimStick == null) return;
+
+        aimIcon = (RectTransform)bombAimStick.transform;
+        aimIconPosition = aimIcon.anchoredPosition;
+        if (Application.isPlaying) bombAimStick.gameObject.SetActive(false);
     }
 
     protected override void OnDisable()
     {
-        if (Application.isPlaying) HideAim();
+        if (Application.isPlaying) ResetAim();
         base.OnDisable();
     }
 
@@ -46,14 +52,13 @@ public class CombatTouchPad : MaskableGraphic, ICanvasRaycastFilter,
             return;
         }
 
-        if (bombAimStick == null || aimPointer.HasValue) return;
+        if (aimIcon == null || aimPointer.HasValue) return;
 
-        RectTransform stick = (RectTransform)bombAimStick.transform;
         if (!RectTransformUtility.ScreenPointToWorldPointInRectangle(
-                stick, eventData.position, eventData.pressEventCamera, out Vector3 center))
+                aimIcon, eventData.position, eventData.pressEventCamera, out Vector3 center))
             return;
 
-        stick.position = center;
+        aimIcon.position = center;
         aimPointer = eventData.pointerId;
         bombAimStick.gameObject.SetActive(true);
         bombAimStick.OnPointerDown(eventData);
@@ -69,14 +74,16 @@ public class CombatTouchPad : MaskableGraphic, ICanvasRaycastFilter,
     {
         if (aimPointer != eventData.pointerId) return;
 
-        if (bombAimStick != null) bombAimStick.OnPointerUp(eventData);
-        HideAim();
+        ResetAim();
     }
 
-    void HideAim()
+    void ResetAim()
     {
         aimPointer = null;
-        if (bombAimStick != null) bombAimStick.gameObject.SetActive(false);
+        if (aimIcon == null) return;
+
+        aimIcon.anchoredPosition = aimIconPosition;
+        bombAimStick.gameObject.SetActive(false);
     }
 
     public bool IsRaycastLocationValid(Vector2 screenPoint, Camera eventCamera)
@@ -95,9 +102,13 @@ public class CombatTouchPad : MaskableGraphic, ICanvasRaycastFilter,
         float radius = Mathf.Min(rect.width, rect.height) * 0.5f;
         float gap = Gap(radius);
 
-        return radius > 0f && point.sqrMagnitude <= radius * radius
-            && Mathf.Abs(point.y) >= gap
-            && (point.y < 0f || Mathf.Abs(point.x) >= gap);
+        if (radius <= 0f || point.sqrMagnitude > radius * radius || Mathf.Abs(point.y) < gap)
+            return false;
+
+        if (point.y < 0f || point.x >= gap) return true;
+
+        return point.x <= -gap && aimIcon != null && !aimPointer.HasValue &&
+            RectTransformUtility.RectangleContainsScreenPoint(aimIcon, screenPoint, eventCamera);
     }
 
     float Gap(float radius)

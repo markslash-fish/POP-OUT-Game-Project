@@ -1,10 +1,11 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class AnimatedBodyMover : MonoBehaviour
 {
     [Header("Movement")]
     public float moveSpeed = 1.5f;
-    public float turnSpeed = 540f;          // degrees/second
+    public float turnSpeed = 720f;          // degrees/second
     public VirtualJoystick joystick;        // LEFT stick: movement
     public VirtualJoystick aimJoystick;     // MOBILE: RIGHT stick: aim + throw (optional on PC)
     public Transform cameraTransform;       // leave empty = uses Camera.main
@@ -12,13 +13,15 @@ public class AnimatedBodyMover : MonoBehaviour
 
     Animator animator;
     Vector2 moveInput;                      // x = left/right, y = up/down on screen (max length 1)
+    const float TurnBlendTime = 0.065f;
+    float turnVelocity;
+    internal float YawAngularSpeed { get; private set; }
 
     public bool holding;                    // true while aiming (mouse right-click OR aim stick)
     public float holdBlendSpeed = 8f;       // how fast the arms blend in and out
     float holdWeight;
     public float throwDuration = 0.6f;      // set to your Throw clip's length in seconds
     float throwTimer;
-    bool wasHolding;
 
     [Header("Arm drive")]
     public ConfigurableJoint armL;          // Arm.L joint on Physical_Body
@@ -48,18 +51,12 @@ public class AnimatedBodyMover : MonoBehaviour
         bool canInput = MatchManager.InputEnabled && !IsStunned();   // false during countdown / after the match / while stunned
         bool canAct = canInput && !IsDisarmed();                     // disarmed players cannot hold a balloon
         // Swing (melee) is handled by MeleeCombat now
-        if (canInput && Input.GetKeyDown(KeyCode.E)) animator.SetTrigger("Throw");
+        if (canInput && Input.GetKeyDown(KeyCode.E)) PlayThrow();
 
         // MOBILE: aim stick counts as "holding" too
-        holding = canAct && (Input.GetMouseButton(1) || (aimJoystick != null && aimJoystick.IsPressed));
+        bool mouseHeld = !Application.isMobilePlatform && Mouse.current?.rightButton.isPressed == true;
+        holding = canAct && (mouseHeld || (aimJoystick != null && aimJoystick.IsPressed));
 
-        // releasing = throw
-        if (wasHolding && !holding)
-        {
-            animator.SetTrigger("Throw");
-            throwTimer = throwDuration;
-        }
-        wasHolding = holding;
         throwTimer -= Time.deltaTime;
 
         holdWeight = Mathf.MoveTowards(holdWeight, holding ? 1f : 0f, holdBlendSpeed * Time.deltaTime);
@@ -71,6 +68,12 @@ public class AnimatedBodyMover : MonoBehaviour
         float damper = Mathf.Lerp(looseDamper, holdDamper, firm);
         SetArmDrive(armL, spring, damper);
         SetArmDrive(armR, spring, damper);
+    }
+
+    internal void PlayThrow()
+    {
+        animator.SetTrigger("Throw");
+        throwTimer = throwDuration;
     }
 
     void ReadMoveInput()
@@ -96,12 +99,21 @@ public class AnimatedBodyMover : MonoBehaviour
         // MOBILE: while the aim stick is held, face where the stick points (move stick still lets you walk)
         Vector3 aimDir = (MatchManager.InputEnabled && !IsStunned() && aimJoystick != null && aimJoystick.IsPressed) ? ToWorld(aimJoystick.Value) : Vector3.zero;
         Vector3 faceDir = aimDir.sqrMagnitude > 0.0001f ? aimDir : moveDir;
+        YawAngularSpeed = 0f;
 
         if (faceDir.sqrMagnitude > 0.0001f)
         {
-            Quaternion target = Quaternion.LookRotation(faceDir.normalized, Vector3.up);
-            transform.rotation = Quaternion.RotateTowards(transform.rotation, target, turnSpeed * Time.fixedDeltaTime);
+            float yaw = transform.eulerAngles.y;
+            float targetYaw = Mathf.Atan2(faceDir.x, faceDir.z) * Mathf.Rad2Deg;
+            float yawError = Mathf.DeltaAngle(yaw, targetYaw);
+            if (yawError * turnVelocity <= 0f) turnVelocity = 0f;
+
+            float step = Time.fixedDeltaTime;
+            float nextYaw = Mathf.SmoothDampAngle(yaw, targetYaw, ref turnVelocity, TurnBlendTime, turnSpeed, step);
+            transform.rotation = Quaternion.Euler(0f, nextYaw, 0f);
+            YawAngularSpeed = Mathf.DeltaAngle(yaw, nextYaw) * Mathf.Deg2Rad / step;
         }
+        else turnVelocity = 0f;
 
         if (moveDir.sqrMagnitude > 0.0001f)
             transform.position += moveDir.normalized * moveInput.magnitude * moveSpeed * SpeedMultiplier() * Time.fixedDeltaTime;

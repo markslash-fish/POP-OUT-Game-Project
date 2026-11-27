@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+[DefaultExecutionOrder(100)]
 public class ActiveRagdoll : MonoBehaviour
 {
     [Header("Rig")]
@@ -26,6 +27,8 @@ public class ActiveRagdoll : MonoBehaviour
 
     List<Pair> pairs = new List<Pair>();
     Rigidbody spineRb;
+    AnimatedBodyMover mover;
+    KnockbackReceiver knockback;
     float restHeight;   // Spine height above the Animated_Body root at start
     Vector3 Vel(Rigidbody rb)
     {
@@ -39,6 +42,8 @@ public class ActiveRagdoll : MonoBehaviour
     void Awake()
     {
         spineRb = physicalSpine.GetComponent<Rigidbody>();
+        mover = animatedRoot.GetComponent<AnimatedBodyMover>();
+        knockback = GetComponent<KnockbackReceiver>();
 
         var animBones = new Dictionary<string, Transform>();
         foreach (var t in animatedSpine.GetComponentsInChildren<Transform>())
@@ -83,9 +88,19 @@ public class ActiveRagdoll : MonoBehaviour
         Quaternion rotErr = animatedSpine.rotation * Quaternion.Inverse(spineRb.rotation);
         rotErr.ToAngleAxis(out float angle, out Vector3 axis);
         if (angle > 180f) angle -= 360f;
-        if (!float.IsInfinity(axis.x) && Mathf.Abs(angle) > 0.01f)
-            spineRb.AddTorque(axis * (angle * Mathf.Deg2Rad * rotSpring)
-                              - spineRb.angularVelocity * rotDamper);
+        if (!float.IsInfinity(axis.x))
+        {
+            Vector3 rotationError = axis * (angle * Mathf.Deg2Rad);
+            Vector3 angularVelocity = spineRb.angularVelocity;
+            Vector3 torque = rotationError * rotSpring - angularVelocity * rotDamper;
+
+            // Follow the commanded yaw without changing the rig's pitch, roll, or stagger drive.
+            if (mover != null && mover.isActiveAndEnabled && (knockback == null || !knockback.IsStaggered))
+                torque.y = rotationError.y * (rotSpring * 2.5f)
+                    + (mover.YawAngularSpeed - angularVelocity.y) * (rotDamper * 1.5f);
+
+            spineRb.AddTorque(torque);
+        }
 
         // 4. Joint targets: copy the animated pose onto each joint
         foreach (var p in pairs)

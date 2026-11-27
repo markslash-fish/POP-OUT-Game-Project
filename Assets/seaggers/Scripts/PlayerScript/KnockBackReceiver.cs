@@ -17,6 +17,7 @@ public class KnockbackReceiver : MonoBehaviour
 
     float basePosSpring, basePosDamper, baseRotSpring, baseRotDamper;
     float timer;                        // counts down from (staggerTime + recoverTime)
+    internal bool IsStaggered => timer > 0f;
 
     void Awake()
     {

@@ -45,9 +45,15 @@ public class PlayerHitBadges : MonoBehaviour
 
     void OnDamage(Health victim, Health attacker, float damage, HitType type)
     {
-        if (target == null || victim != target || attacker == null || attacker == target) return;
-        if (!MatchManager.InputEnabled || target.IsDead || target.Current <= 0f) return;
+        if (victim != target) return;
         if (type != HitType.BalloonCenter && type != HitType.BalloonOuter) return;
+        ShowBalloonHit(attacker);
+    }
+
+    internal void ShowBalloonHit(Health attacker)
+    {
+        if (target == null || attacker == null || attacker == target) return;
+        if (!MatchManager.InputEnabled || target.IsDead || target.Current <= 0f || target.IsInvulnerable) return;
         if (slots == null || slots.Length == 0) return;
 
         var identity = attacker.GetComponent<PlayerColorIdentity>();
@@ -72,7 +78,7 @@ public class PlayerHitBadges : MonoBehaviour
 
     void OnMatchStateChanged(MatchState state) => ClearBadges();
 
-    void ClearBadges()
+    internal void ClearBadges()
     {
         badges.Clear();
         RefreshRow();
